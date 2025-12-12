@@ -9,13 +9,13 @@ inputs:
   file: []
   positional:
   - default: ''
-      description: ' source location for the COGs in object storage, e.g. s3://bucket/path/to/folder/'
+    description: ' source location for the COGs in object storage, e.g. s3://bucket/path/to/folder/'
     name: source
     required: true
   - default: ''
     description: ' region in which the storage container exists'
     name: region
     required: false
-queue: maap-dps-worker-16gb
+queue: maap-dps-worker-8gb
 repository_url: https://github.com/MAAP-Project/dps-import-cogs
 run_command: dps-import-cogs/run.sh
