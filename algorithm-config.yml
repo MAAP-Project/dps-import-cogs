@@ -1,7 +1,7 @@
-algorithm_description: Generate cloud-free temporal mosaics from HLS data
-algorithm_name: HLS Cloud Free Temporal Mosaic
-algorithm_version: v0.2
-build_command: hls-cloud-free-temporal-mosaic/build-env.sh
+algorithm_description: Generate STAC item metadata for COGs in cloud storage
+algorithm_name: GenerateCogStacItems
+algorithm_version: v0.1
+build_command: dps-import-cogs/build-env.sh
 disk_space: 8GB
 docker_container_url: mas.maap-project.org/root/maap-workspaces/custom_images/maap_base:v4.2.0
 inputs:
@@ -9,22 +9,13 @@ inputs:
   file: []
   positional:
   - default: ''
-    description: ' start datetime for HLS STAC query in YYYY-mm-ddTHH:MM:SSZ format'
-    name: start_datetime
+      description: ' source location for the COGs in object storage, e.g. s3://bucket/path/to/folder/'
+    name: source
     required: true
   - default: ''
-    description: ' end datetime for HLS STAC query in YYYY-mm-ddTHH:MM:SSZ format'
-    name: end_datetime
-    required: true
-  - default: ''
-    description: space-separated bounding box coordinates in CRS coordinates (xmin
-      ymin xmax ymax)
-    name: bbox
-    required: true
-  - default: ''
-    description: coordinate reference system (e.g. epsg:5070)
-    name: crs
-    required: true
+    description: ' region in which the storage container exists'
+    name: region
+    required: false
 queue: maap-dps-worker-16gb
-repository_url: https://github.com/MAAP-Project/hls-cloud-free-temporal-mosaic
-run_command: hls-cloud-free-temporal-mosaic/run.sh
+repository_url: https://github.com/MAAP-Project/dps-import-cogs
+run_command: dps-import-cogs/run.sh

@@ -23,17 +23,8 @@ mkdir -p output
 INPUT_DIR=input
 OUTPUT_DIR=output
 
-# Parse positional arguments
-if [[ $# -ne 4 ]]; then
-    echo "Error: Expected 4 arguments, got $#"
-    echo "Usage: $0 <start_datetime> <end_datetime> <bbox_string> <crs>"
-    exit 1
-fi
-
-start_datetime="$1"
-end_datetime="$2"
-bbox="$3"
-crs="$4"
+source="$1"
+region="${2:-}"
 
 # Call the script using the absolute paths
 # Use the updated environment when calling 'uv run'
@@ -44,10 +35,15 @@ crs="$4"
 unset PROJ_LIB
 unset PROJ_DATA
 
-UV_PROJECT=${basedir} uv run --no-dev ${basedir}/main.py \
-    --start_datetime "${start_datetime}" \
-    --end_datetime "${end_datetime}" \
-    --bbox ${bbox} \
-    --crs "${crs}" \
-    --output_dir="${OUTPUT_DIR}" \
-    --direct_bucket_access
+# Build command arguments
+args=(
+    --source="${source}"
+    --output_dir="${OUTPUT_DIR}"
+)
+
+# Only add --region if it was provided
+if [ -n "$region" ]; then
+    args+=(--region="${region}")
+fi
+
+UV_PROJECT=${basedir} uv run --no-dev ${basedir}/main.py "${args[@]}"

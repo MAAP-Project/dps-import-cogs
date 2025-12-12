@@ -1,28 +1,20 @@
 [project]
-name = "hls-cloud-free-temporal-mosaic"
-description = "Generate cloud-free temporal mosaics from HLS data"
+name = "dps-import-cogs"
+description = "DPS algorithm for generating STAC item metadata for COGs from external sources"
 readme = "README.md"
 requires-python = ">=3.12"
 dynamic = ["version"]
 
 dependencies = [
-    "dask>=2025.10.0",
-    "maap-py>=4.2.0",
-    "odc-stac>=0.4.0",
-    "pyproj>=3.7.2",
+    "obstore>=0.8.2",
     "pystac>=1.14.1",
-    "rasterio>=1.4.3",
+    "rio-cogeo>=7.0.0",
     "rio-stac>=0.10.1",
-    "rioxarray>=0.20.0",
-    "rustac>=0.8.4",
-    "shapely>=2.1.2",
 ]
 
 [dependency-groups]
 dev = [
-    "ipython>=9.6.0",
-    "jupyterlab>=4.4.10",
-    "matplotlib>=3.10.7",
+    "ipython>=9.8.0",
     "mypy>=1.18.2",
     "pre-commit>=4.3.0",
     "ruff>=0.14.3",
