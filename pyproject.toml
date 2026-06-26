@@ -1,6 +1,10 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "dps-import-cogs"
-description = "DPS algorithm for generating STAC item metadata for COGs from external sources"
+name = "dps-stac-item-generator"
+description = "DPS algorithm for generating STAC item metadata for selected files from external sources"
 readme = "README.md"
 requires-python = ">=3.12"
 dynamic = ["version"]
@@ -12,17 +16,31 @@ dependencies = [
     "rio-stac>=0.10.1",
 ]
 
+[project.scripts]
+dps-stac-item-generator = "dps_stac_item_generator.cli:main"
+
 [dependency-groups]
 dev = [
     "ipython>=9.8.0",
     "maap-py>=4.2.0",
     "mypy>=1.18.2",
     "pre-commit>=4.3.0",
+    "pytest>=9.1.1",
     "ruff>=0.14.3",
 ]
 
 [tool.pdm.version]
 source = "scm"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-vv"
 
 [tool.ruff]
 
