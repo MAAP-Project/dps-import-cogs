@@ -28,7 +28,7 @@ maap = MAAP(maap_host="api.maap-project.org")
 
 job = maap.submitJob(
     algo_id="GenerateStacItems",
-    version="v0.1",
+    version="v0.2.0",
     identifier="test-run",
     queue="maap-dps-worker-8gb",
     source="s3://nasa-maap-data-store/file-staging/nasa-map/glad-glclu2020/v2/2020/",
@@ -38,21 +38,23 @@ job = maap.submitJob(
 
 Each job will produce a STAC item for each file under the provided `source` whose extension matches the configured filters. The STAC items will be uploaded to the DPS User STAC catalog automatically after job completion. All jobs associated with the same algorithm, version, username, and job tag/identifier will be added to the same collection with the following format:
 
-`{username}__GenerateStacItems__v0.1__{identifier}`
+`{username}__generatestacitems__v0.2.0__{identifier}`
+
+The destination collection ID is all lowercase. Use lowercase values for `username` and `identifier` when substituting into this pattern.
 
 
 You can access the items following this pattern:
 ```
-https://mxyjvl46y3.execute-api.us-west-2.amazonaws.com/{collection_id}
+https://dps-stac.maap-project.org/collections/{collection_id}
 ```
 
 where `identifier` is the value you provided for the job identifier/tag when you submitted the job.
 
 The job results can be visualized using the DPS User STAC titiler endpoint:
 
-* tilejson: `https://ansdoe39vf.execute-api.us-west-2.amazonaws.com/collections/{collection_id}/tiles/WebMercatorQuad/tilejson.json?assets=asset`
+* tilejson: `https://titiler-dps-stac.maap-project.org/collections/{collection_id}/tiles/WebMercatorQuad/tilejson.json?assets=asset`
 
-* quick map: `https://ansdoe39vf.execute-api.us-west-2.amazonaws.com/collections/{collection_id}/WebMercatorQuad/map.html?assets=asset`
+* quick map: `https://titiler-dps-stac.maap-project.org/collections/{collection_id}/WebMercatorQuad/map.html?assets=asset`
 
 To customize the visualization, you can add all of the familiar visualization parameters to the end of the url like `&colormap_name=viridis&rescale=0,100`
 
