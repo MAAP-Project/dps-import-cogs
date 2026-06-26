@@ -1,6 +1,6 @@
 algorithm_description: Generate STAC item metadata for selected files in cloud storage
 algorithm_name: GenerateStacItems
-algorithm_version: v0.1
+algorithm_version: v0.2.0
 build_command: dps-import-cogs/build-env.sh
 disk_space: 8GB
 docker_container_url: mas.maap-project.org/root/maap-workspaces/custom_images/maap_base:v4.2.0
@@ -8,22 +8,22 @@ inputs:
   config: []
   file: []
   positional:
-  - default: ''
-    description: ' source location for the files in object storage, e.g. s3://bucket/path/to/folder/'
-    name: source
-    required: true
-  - default: ''
-    description: ' region in which the storage container exists'
-    name: region
-    required: false
-  - default: '.tif,.tiff,.nc'
-    description: ' comma-separated file extensions to include, e.g. .tif,.tiff,.nc. Leave empty to include all files.'
-    name: include_extensions
-    required: false
-  - default: ''
-    description: ' comma-separated file extensions to exclude. Exclusions override inclusions.'
-    name: exclude_extensions
-    required: false
+    - default: ""
+      description: " source location for the files in object storage, e.g. s3://bucket/path/to/folder/"
+      name: source
+      required: true
+    - default: ""
+      description: " region in which the storage container exists"
+      name: region
+      required: false
+    - default: ".tif,.tiff,.nc"
+      description: " comma-separated file extensions to include, e.g. .tif,.tiff,.nc. Leave empty to include all files."
+      name: include_extensions
+      required: false
+    - default: ""
+      description: " comma-separated file extensions to exclude. Exclusions override inclusions."
+      name: exclude_extensions
+      required: false
 queue: maap-dps-worker-8gb
 repository_url: https://github.com/MAAP-Project/dps-import-cogs
 run_command: dps-import-cogs/run.sh
