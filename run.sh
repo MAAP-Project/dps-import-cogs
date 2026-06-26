@@ -25,6 +25,8 @@ OUTPUT_DIR=output
 
 source="$1"
 region="${2:-}"
+include_extensions="${3:-}"
+exclude_extensions="${4:-}"
 
 # Call the script using the absolute paths
 # Use the updated environment when calling 'uv run'
@@ -41,9 +43,18 @@ args=(
     --output_dir="${OUTPUT_DIR}"
 )
 
-# Only add --region if it was provided
+# Only add optional parameters if provided. Extension arguments may be
+# intentionally empty, so check the number of positional arguments for those.
 if [ -n "$region" ]; then
     args+=(--region="${region}")
+fi
+
+if [ "$#" -ge 3 ]; then
+    args+=(--include-extensions="${include_extensions}")
+fi
+
+if [ "$#" -ge 4 ]; then
+    args+=(--exclude-extensions="${exclude_extensions}")
 fi
 
 UV_PROJECT=${basedir} uv run --no-dev ${basedir}/main.py "${args[@]}"

@@ -1,5 +1,5 @@
-algorithm_description: Generate STAC item metadata for COGs in cloud storage
-algorithm_name: GenerateCogStacItems
+algorithm_description: Generate STAC item metadata for selected files in cloud storage
+algorithm_name: GenerateStacItems
 algorithm_version: v0.1
 build_command: dps-import-cogs/build-env.sh
 disk_space: 8GB
@@ -9,12 +9,20 @@ inputs:
   file: []
   positional:
   - default: ''
-    description: ' source location for the COGs in object storage, e.g. s3://bucket/path/to/folder/'
+    description: ' source location for the files in object storage, e.g. s3://bucket/path/to/folder/'
     name: source
     required: true
   - default: ''
     description: ' region in which the storage container exists'
     name: region
+    required: false
+  - default: '.tif,.tiff,.nc'
+    description: ' comma-separated file extensions to include, e.g. .tif,.tiff,.nc. Leave empty to include all files.'
+    name: include_extensions
+    required: false
+  - default: ''
+    description: ' comma-separated file extensions to exclude. Exclusions override inclusions.'
+    name: exclude_extensions
     required: false
 queue: maap-dps-worker-8gb
 repository_url: https://github.com/MAAP-Project/dps-import-cogs

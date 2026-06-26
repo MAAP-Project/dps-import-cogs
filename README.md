@@ -1,17 +1,17 @@
-# DPS Import COGs
+# DPS STAC Item Generator
 
-Create STAC items for raster files in object storage
+Create STAC items for selected files in object storage.
 
 ## About
 
-This DPS algorithm creates STAC metadata for existing raster files (GeoTIFFs) stored in object storage (S3, Azure, GCS, etc.). The workflow:
+This DPS algorithm creates STAC metadata for existing files stored in object storage (S3, Azure, GCS, etc.). The workflow:
 
 1. Lists all files at the specified source location
-2. Filters for `.tif` files
-3. Creates a STAC item for each raster using `rio-stac`
+2. Filters files by configurable include/exclude extension lists
+3. Creates a STAC item for each matching asset using `rio-stac`
 4. Exports a self-contained STAC catalog with all items
 
-This tool is useful for importing existing COG (Cloud Optimized GeoTIFF) datasets into STAC format for better discoverability and interoperability.
+By default, the algorithm includes GeoTIFF (`.tif`, `.tiff`) and NetCDF (`.nc`) files. This tool is useful for importing existing geospatial datasets into STAC format for better discoverability and interoperability.
 The STAC items will be uploaded to the DPS User STAC in a collection associated with your username, the algorithm name/version, and the job tag.
 
 ## Usage
@@ -27,7 +27,7 @@ from maap.maap import MAAP
 maap = MAAP(maap_host="api.maap-project.org")
 
 job = maap.submitJob(
-    algo_id="GenerateCogStacItems",
+    algo_id="GenerateStacItems",
     version="v0.1",
     identifier="test-run",
     queue="maap-dps-worker-8gb",
@@ -36,9 +36,9 @@ job = maap.submitJob(
 
 ```
 
-Each job will produce a STAC item for each .tif file that exists under the provided `source`. The STAC items will be uploaded to the DPS User STAC catalog automatically after job completion. All jobs associated with the same algorithm, version, username, and job tag/identifier will be added to the same collection with the following format:
+Each job will produce a STAC item for each file under the provided `source` whose extension matches the configured filters. The STAC items will be uploaded to the DPS User STAC catalog automatically after job completion. All jobs associated with the same algorithm, version, username, and job tag/identifier will be added to the same collection with the following format:
 
-`{username}__GenerateCogStacItems__v0.1__{identifier}`
+`{username}__GenerateStacItems__v0.1__{identifier}`
 
 
 You can access the items following this pattern:
@@ -62,7 +62,9 @@ To customize the visualization, you can add all of the familiar visualization pa
 uv run main.py \
   --source "s3://bucket/path/to/files/" \
   --output_dir "/tmp/output" \
-  --region "us-west-2"
+  --region "us-west-2" \
+  --include-extensions ".tif,.tiff,.nc" \
+  --exclude-extensions ""
 ```
 
 ### Parameters
@@ -70,11 +72,13 @@ uv run main.py \
 - `--source`: Source location of the files for which you want to generate STAC items (e.g., `s3://bucket/path/to/files/`)
 - `--output_dir`: Directory where the STAC catalog will be saved
 - `--region`: AWS region where the storage container exists (default: `us-west-2`)
+- `--include-extensions`: Comma-separated extensions to include (default: `.tif,.tiff,.nc`). Use an empty string to include all files.
+- `--exclude-extensions`: Comma-separated extensions to exclude. Exclusions override inclusions.
 
 ## Output
 
 The tool generates a self-contained STAC catalog in the output directory containing:
 
 - A `catalog.json` file with metadata about the collection
-- Individual STAC item JSON files for each raster
-- Each STAC item includes projection (`proj`) and raster band information
+- Individual STAC item JSON files for each matching asset
+- Each STAC item includes projection (`proj`) and raster band information when `rio-stac` can derive it from the source asset
