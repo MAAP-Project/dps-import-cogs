@@ -67,6 +67,22 @@ uv run main.py \
   --exclude-extensions ""
 ```
 
+### Local format smoke test
+
+To generate local fixtures in `/tmp` and run the generator against them:
+
+```bash
+uv run python scripts/local_format_smoke_test.py
+```
+
+The script creates tiny GeoTIFF, COG, NetCDF, HDF5, JPEG 2000, PNG, and JPEG fixtures when the required GDAL/HDF5 command-line tools are available. It logs the `/tmp/dps-stac-local-*` input and output directories when it finishes.
+
+To exercise the DPS wrapper instead of calling `main.py` directly:
+
+```bash
+uv run python scripts/local_format_smoke_test.py --runner run-sh
+```
+
 ### Parameters
 
 - `--source`: Source location of the files for which you want to generate STAC items (e.g., `s3://bucket/path/to/files/`)
