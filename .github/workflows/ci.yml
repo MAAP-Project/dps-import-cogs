@@ -9,8 +9,8 @@ on:
 permissions: {}
 
 jobs:
-  lint-python:
-    name: Lint and typecheck
+  quality:
+    name: Quality checks
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -28,11 +28,8 @@ jobs:
       - name: Set up Python
         run: uv python install 3.14
 
-      - name: Run ruff
-        run: uv run ruff check .
-
-      - name: Run mypy
-        run: uv run mypy src tests
+      - name: Run pre-commit
+        run: uv run pre-commit run --all-files
 
   test:
     name: Test Python ${{ matrix.python-version }}
@@ -55,10 +52,6 @@ jobs:
 
       - name: Set up Python
         run: uv python install ${{ matrix.python-version }}
-
-      - name: Run pre-commit
-        if: matrix.python-version == '3.14'
-        run: uv run pre-commit run --all-files
 
       - name: Run tests
         run: uv run pytest
