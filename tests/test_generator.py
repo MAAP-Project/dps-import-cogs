@@ -89,7 +89,11 @@ def test_run_filters_extensions_and_assigns_media_types(
         exclude_extensions=".txt",
     )
 
-    assert [item["id"] for item in created_items] == ["image", "cube"]
-    assert created_items[0]["asset_media_type"] == MediaType.COG
-    assert created_items[1]["asset_media_type"] == MediaType.NETCDF
+    assert [item["id"].split("-")[0] for item in created_items] == ["cube", "image"]
+    media_by_source = {
+        item["source"].rsplit("/", 1)[-1]: item["asset_media_type"]
+        for item in created_items
+    }
+    assert media_by_source["image.tif"] == MediaType.COG
+    assert media_by_source["cube.nc"] == MediaType.NETCDF
     assert (tmp_path / "catalog.json").exists()

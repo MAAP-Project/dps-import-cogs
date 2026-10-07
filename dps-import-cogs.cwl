@@ -34,14 +34,19 @@ $graph:
         default: us-west-2
       include_extensions:
         label: Included extensions
-        doc: Comma-separated extensions to include. An empty string includes all files.
-        type: string
-        default: '.tif,.tiff,.nc'
+        doc: Comma-separated extensions to include. Omit to use defaults; an empty string includes all files.
+        type: ["null", string]
+        default: null
       exclude_extensions:
         label: Excluded extensions
         doc: Comma-separated extensions to exclude. Exclusions override inclusions.
         type: string
         default: ''
+      config:
+        label: Cataloging configuration
+        doc: Optional JSON path selection and grouping configuration.
+        type: ["null", File]
+        default: null
     outputs:
       output:
         type: Directory
@@ -54,6 +59,7 @@ $graph:
           region: region
           include_extensions: include_extensions
           exclude_extensions: exclude_extensions
+          config: config
         out:
           - output
   - class: CommandLineTool
@@ -88,8 +94,8 @@ $graph:
           position: 2
           prefix: '--region'
       include_extensions:
-        type: string
-        default: '.tif,.tiff,.nc'
+        type: ["null", string]
+        default: null
         inputBinding:
           position: 3
           prefix: '--include-extensions='
@@ -101,6 +107,11 @@ $graph:
           position: 4
           prefix: '--exclude-extensions='
           separate: false
+      config:
+        type: ["null", File]
+        inputBinding:
+          position: 5
+          prefix: '--config'
     outputs:
       output:
         type: Directory
