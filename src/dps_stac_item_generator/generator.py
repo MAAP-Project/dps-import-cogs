@@ -93,17 +93,20 @@ def create_item_id(path: str) -> str:
 def _load_config(config_path: Path | None, config_json: str | None = None) -> dict:
     if config_path is not None and config_json is not None:
         raise ValueError("Use only one of config_path or config_json")
-    if config_path is None and not config_json:
+    if config_json:
+        try:
+            value = json.loads(config_json)
+        except json.JSONDecodeError as error:
+            raise ValueError(f"Cannot read inline JSON config: {error}") from error
+    elif config_path is not None:
+        try:
+            value = json.loads(config_path.read_text())
+        except (OSError, json.JSONDecodeError) as error:
+            raise ValueError(
+                f"Cannot read JSON config {config_path}: {error}"
+            ) from error
+    else:
         return {}
-    try:
-        value = (
-            json.loads(config_json)
-            if config_json
-            else json.loads(config_path.read_text())
-        )
-    except (OSError, json.JSONDecodeError) as error:
-        source = "inline JSON config" if config_json else f"JSON config {config_path}"
-        raise ValueError(f"Cannot read {source}: {error}") from error
     if not isinstance(value, dict):
         raise ValueError("Config must be a JSON object")
     unknown = set(value) - _ALLOWED_CONFIG_FIELDS
