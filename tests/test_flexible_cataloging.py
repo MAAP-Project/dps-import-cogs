@@ -120,6 +120,61 @@ def test_grouped_items_keep_per_asset_projection_and_attachment(
     assert item_document["assets"]["hv"]["raster:bands"][0]["data_type"] == "uint16"
 
 
+def test_inline_json_config_groups_multiple_assets(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Serialized inline config uses the same validation and grouping workflow."""
+    source = tmp_path / "source"
+    paths = ["left/red.tif", "left/green.tif", "left/blue.tif"]
+    for path in paths:
+        write_raster(source / path)
+    install_listing(monkeypatch, paths)
+    monkeypatch.setattr(generator, "is_cloud_optimized_geotiff", lambda _href: False)
+    config = json.loads((ROOT / "examples/happy-face.json").read_text())
+
+    output = tmp_path / "inline-catalog"
+    generator.run(
+        source=source.as_uri(),
+        output_dir=output,
+        config_json=json.dumps(config),
+    )
+
+    items = list(Catalog.from_file(str(output / "catalog.json")).get_items())
+    assert len(items) == 1
+    assert items[0].id == "happy-face-left"
+    assert set(items[0].assets) == {"red", "green", "blue"}
+
+
+def test_invalid_inline_json_is_rejected_before_listing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Malformed inline JSON is rejected before storage access."""
+    monkeypatch.setattr(
+        generator, "from_url", lambda *_args, **_kwargs: pytest.fail("store opened")
+    )
+    with pytest.raises(ValueError, match="Cannot read inline JSON config"):
+        generator.run(
+            source="s3://bucket/input",
+            output_dir=tmp_path / "out",
+            config_json="{not json}",
+        )
+
+
+def test_config_file_and_inline_json_are_rejected_together(
+    tmp_path: Path,
+) -> None:
+    """Callers cannot accidentally provide two competing config sources."""
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}")
+    with pytest.raises(ValueError, match="only one of config_path or config_json"):
+        generator.run(
+            source="s3://bucket/input",
+            output_dir=tmp_path / "out",
+            config_path=config_path,
+            config_json="{}",
+        )
+
+
 def test_plan_errors_and_dry_run_precede_raster_reads(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
