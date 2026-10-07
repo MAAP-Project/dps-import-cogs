@@ -71,7 +71,11 @@ def test_generated_tiles_are_adjacent_and_channels_form_one_image(
     assert not np.array_equal(rgb[1], rgb[2])
     # The center seam crosses the warm face and its continuous curved smile.
     assert rgb[0, 32, 63] == 255 and rgb[0, 32, 64] == 255
-    assert rgb[0, 41, 63] == 185 and rgb[0, 41, 64] == 185
+    smile_pixels = (rgb[0] == 185) & (rgb[1] == 25) & (rgb[2] == 65)
+    assert smile_pixels[44, 63] and smile_pixels[44, 64]
+    center_rows = np.flatnonzero(smile_pixels[:, 63])
+    corner_rows = np.flatnonzero(smile_pixels[:, 43])
+    assert center_rows.mean() > corner_rows.mean()
 
 
 def test_happy_face_config_catalogs_two_items_with_three_real_assets(

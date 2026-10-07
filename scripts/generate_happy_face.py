@@ -41,7 +41,8 @@ def make_rgb_image(size: int) -> np.ndarray:
     image[2][eyes] = 95
 
     mouth_x = (xx >= 0.335) & (xx <= 0.665)
-    mouth_curve = 0.64 + 1.8 * (xx - 0.5) ** 2
+    # Image rows increase downward, so a smile has a larger y at its center.
+    mouth_curve = 0.70 - 1.8 * (xx - 0.5) ** 2
     smile = mouth_x & (np.abs(yy - mouth_curve) <= 0.012)
     image[0][smile] = 185
     image[1][smile] = 25
