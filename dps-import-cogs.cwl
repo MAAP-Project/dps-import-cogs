@@ -9,8 +9,8 @@ s:author:
     s:name: MAAP Project
 s:codeRepository: https://github.com/MAAP-Project/dps-import-cogs
 # x-release-please-start-version
-s:softwareVersion: 0.3.0
-s:version: 0.3.0
+s:softwareVersion: 0.3.1
+s:version: 0.3.1
 # x-release-please-end
 s:keywords:
   - STAC
@@ -67,7 +67,7 @@ $graph:
     requirements:
       DockerRequirement:
         # x-release-please-start-version
-        dockerPull: ghcr.io/maap-project/dps-import-cogs:v0.3.0
+        dockerPull: ghcr.io/maap-project/dps-import-cogs:v0.3.1
         # x-release-please-end
       NetworkAccess:
         networkAccess: true

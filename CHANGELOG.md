@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/MAAP-Project/dps-import-cogs/compare/v0.3.0...v0.3.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* pass config as json input ([#7](https://github.com/MAAP-Project/dps-import-cogs/issues/7)) ([3c5c0e7](https://github.com/MAAP-Project/dps-import-cogs/commit/3c5c0e7533647cc043aeee801aefa3dc6c4e3647))
+
 ## [0.3.0](https://github.com/MAAP-Project/dps-import-cogs/compare/v0.2.0...v0.3.0) (2026-10-07)
 
 
