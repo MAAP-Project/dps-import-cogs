@@ -368,6 +368,7 @@ def run(
                 source=href,
                 id=item_id,
                 asset_name=asset_key,
+                asset_href=href,
                 with_proj=True,
                 with_raster=True,
                 asset_media_type=media_type_for_extension(suffix, is_cog=is_cog),
@@ -401,6 +402,7 @@ def run(
             source_item = create_stac_item(
                 source=href,
                 id=item_id,
+                asset_href=href,
                 with_proj=True,
                 with_raster=True,
                 asset_name=asset_key,
