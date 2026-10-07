@@ -258,17 +258,37 @@ def test_invalid_config_is_rejected_before_listing(
 
 
 @pytest.mark.parametrize(
-    ("config_name", "paths", "expected_plan"),
+    (
+        "config_name",
+        "paths",
+        "expected_items",
+        "expected_filtered",
+        "expected_plans",
+    ),
     [
+        (
+            "selection-only.json",
+            ["science/scene_a.tif", "science/scene_b.nc", "notes/readme.txt"],
+            2,
+            1,
+            [
+                f"Item {generator.create_item_id('s3://bucket/input/science/scene_a.tif')}: asset=science/scene_a.tif",
+                f"Item {generator.create_item_id('s3://bucket/input/science/scene_b.nc')}: asset=science/scene_b.nc",
+            ],
+        ),
         (
             "directory-per-item.json",
             ["tiles/32TPR/red.tif", "tiles/32TPR/nir.tif"],
-            "Item tile-32TPR: nir=tiles/32TPR/nir.tif, red=tiles/32TPR/red.tif",
+            1,
+            0,
+            ["Item tile-32TPR: nir=tiles/32TPR/nir.tif, red=tiles/32TPR/red.tif"],
         ),
         (
             "filename-grouped.json",
             ["scenes/scene-1_red.tif", "scenes/scene-1_nir.tif"],
-            "Item scene-1: nir=scenes/scene-1_nir.tif, red=scenes/scene-1_red.tif",
+            1,
+            0,
+            ["Item scene-1: nir=scenes/scene-1_nir.tif, red=scenes/scene-1_red.tif"],
         ),
         (
             "gamma0-grouped.json",
@@ -277,19 +297,38 @@ def test_invalid_config_is_rejected_before_listing(
                 "32TPR/2026-01-01/source-A/gamma0_hv.tif",
                 "32TPR/2026-01-01/source-A/thumbnail.png",
             ],
-            "Item biomass-source-A-32TPR-2026-01-01:",
+            1,
+            0,
+            [
+                "Item biomass-source-A-32TPR-2026-01-01: "
+                "hh=32TPR/2026-01-01/source-A/gamma0_hh.tif, "
+                "hv=32TPR/2026-01-01/source-A/gamma0_hv.tif, "
+                "thumbnail=32TPR/2026-01-01/source-A/thumbnail.png"
+            ],
+        ),
+        (
+            "raster-thumbnail.json",
+            ["scene-1/raster.tif", "scene-1/thumbnail.png"],
+            1,
+            0,
+            [
+                "Item scene-1: raster=scene-1/raster.tif, "
+                "thumbnail=scene-1/thumbnail.png"
+            ],
         ),
     ],
 )
-def test_shipped_group_configs_match_documented_paths(
+def test_shipped_configs_match_documented_paths(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     config_name: str,
     paths: list[str],
-    expected_plan: str,
+    expected_items: int,
+    expected_filtered: int,
+    expected_plans: list[str],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Every shipped grouping config produces its documented mapping in dry-run."""
+    """Every shipped config produces its documented mapping in dry-run."""
     install_listing(monkeypatch, paths)
     caplog.set_level(logging.INFO)
     generator.run(
@@ -298,6 +337,9 @@ def test_shipped_group_configs_match_documented_paths(
         config_path=ROOT / "examples" / config_name,
         dry_run=True,
     )
-    assert "Plan: 1 item(s), 0 unmatched, 0 filtered" in caplog.text
-    assert expected_plan in caplog.text
+    assert (
+        f"Plan: {expected_items} item(s), 0 unmatched, {expected_filtered} filtered"
+    ) in caplog.text
+    for expected_plan in expected_plans:
+        assert expected_plan in caplog.text
     assert not (tmp_path / "out").exists()
