@@ -318,6 +318,7 @@ wheels = [
 
 [[package]]
 name = "dps-stac-item-generator"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "obstore" },
