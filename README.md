@@ -81,7 +81,14 @@ uvx --from cwltool cwltool --outdir ./cwl-output \
 
 ## Production MAAP jobs
 
-Run this example in a separate authenticated production MAAP client environment with OGC-capable `maap-py` (verified against 5.1.0). The project's frozen development environment retains `maap-py` 4.2.0, which lacks the discovery and submission methods below; do not run this example through that environment. The [HLS mosaic example](https://github.com/MAAP-Project/hls-cloud-free-temporal-mosaic#archive-discovery-and-job-enumeration) uses the same discovery/submission path.
+Use the project's development environment with production MAAP authentication. The dev dependency `maap-py>=5.1.0` provides the OGC discovery and submission API; the lockfile selects 5.1.0. It is not a runtime dependency, and the generator image excludes it with `uv sync --frozen --no-dev`. The [HLS mosaic example](https://github.com/MAAP-Project/hls-cloud-free-temporal-mosaic#archive-discovery-and-job-enumeration) uses the same discovery/submission path.
+
+Save the example below as `submit_ogc_job.py` and run it from the repository root:
+
+```bash
+uv sync --frozen --group dev
+uv run --frozen --group dev python submit_ogc_job.py
+```
 
 Set `DPS_PROCESS_VERSION` to the exact version reported for a deployed OGC release. Discover its process ID by title and version instead of deriving one from the CWL ID or the old algorithm name.
 
