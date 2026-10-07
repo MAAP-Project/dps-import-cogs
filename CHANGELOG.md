@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/MAAP-Project/dps-import-cogs/compare/v0.3.1...v0.3.2) (2026-10-07)
+
+
+### Bug Fixes
+
+* fix asset hrefs ([#9](https://github.com/MAAP-Project/dps-import-cogs/issues/9)) ([9c55d8f](https://github.com/MAAP-Project/dps-import-cogs/commit/9c55d8fe6b4b724ea2573f831689ebbdf7daaa19))
+
 ## [0.3.1](https://github.com/MAAP-Project/dps-import-cogs/compare/v0.3.0...v0.3.1) (2026-10-07)
 
 
