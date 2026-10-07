@@ -12,4 +12,5 @@ RUN apt-get update \
 
 COPY pyproject.toml uv.lock README.md ./
 COPY src/ ./src/
+COPY examples/happy-face.json ./examples/happy-face.json
 RUN uv sync --frozen --no-dev --no-editable

@@ -42,7 +42,7 @@ uv run main.py --source "file:///tmp/happy-face-rasters" --output_dir /tmp/happy
 uv run main.py --source "file:///tmp/happy-face-rasters" --output_dir /tmp/happy-face-catalog --config examples/happy-face.json
 ```
 
-`happy-face.json` catalogs two Items (`happy-face-left` and `happy-face-right`), each with `red`, `green`, and `blue` assets. Each raster is one uint8 channel; render with `assets=red,green,blue` and `rescale=0,255`. The EPSG:3857 coordinates are arbitrary illustrative locations, not real acquisition footprints. The timezone-aware `2026-01-01` datetime is illustrative as well. Each asset is a valid COG and is cataloged with the Cloud Optimized GeoTIFF media type.
+`happy-face.json` catalogs two Items (`happy-face-left` and `happy-face-right`), each with `red`, `green`, and `blue` assets. In these generic generator examples, asset hrefs refer to the input rasters and are not copied into the catalog output. Each raster is one uint8 channel; render with `assets=red,green,blue` and `rescale=0,255`. The EPSG:3857 coordinates are arbitrary illustrative locations, not real acquisition footprints. The timezone-aware `2026-01-01` datetime is illustrative as well. Each asset is a valid COG and is cataloged with the Cloud Optimized GeoTIFF media type. For a DPS process that generates and bundles the COGs with the catalog, see [`happy-face-demo.cwl`](../happy-face-demo.cwl).
 
 ## Raster plus thumbnail
 

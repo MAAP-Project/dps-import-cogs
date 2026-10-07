@@ -167,6 +167,48 @@ response.raise_for_status()
 logger.info("Job %s: %s", job_id, response.json()["status"])
 ```
 
+## Self-contained happy-face DPS demo
+
+[`happy-face-demo.cwl`](happy-face-demo.cwl) is a separate, fileless OGC workflow for the synthetic RGB fixture. It runs the existing raster generator and catalog generator on the worker, then returns both the STAC catalog and six generated COGs in one `Directory`. Asset URLs are relative to their Item JSON files and point to uniquely named files under `rasters/`, so the complete output can be relocated. This is a demo/workaround for the MAAP executor's `s3://` stage-out rewrite; it does not change or fix generic remote-source cataloging.
+
+Local execution and tests use real generated COGs without AWS or network access:
+
+```bash
+uv run --frozen happy-face-dps-demo --output_dir /tmp/happy-face-output --size 64
+uvx --from cwltool cwltool --validate happy-face-demo.cwl
+uv run --frozen pytest tests/test_happy_face_demo.py
+```
+
+The returned directory is laid out as follows; unique COG basenames also avoid ambiguity in the executor's basename-keyed CWL summary map:
+
+```text
+output/
+├── catalog.json
+├── happy-face-left/happy-face-left.json
+├── happy-face-right/happy-face-right.json
+└── rasters/
+    ├── happy-face-left-{red,green,blue}.tif
+    └── happy-face-right-{red,green,blue}.tif
+```
+
+The workflow has the distinct process title **Self-contained Happy Face DPS Demo** and uses image tag `ghcr.io/maap-project/dps-import-cogs:happy-face-demo-v0.1.0`. It is deliberately not included in the generic release/registration workflow. The existing released v0.3.2 image does not contain this entry point or the packaged generator/config files. Before registration, a reviewed commit must be pushed so the CWL is accessible at the commit-pinned URL `https://raw.githubusercontent.com/MAAP-Project/dps-import-cogs/<REVIEWED_COMMIT_SHA>/happy-face-demo.cwl`; build and publish a matching image with the tag above, and ensure MAAP workers can pull it. Image publication and registration are separate user-approved actions and have not been performed here.
+
+For manual MAAP OGC registration, first verify the pinned CWL and image, then use the established OGC process API (not legacy algorithm registration). With a valid `MAAP_TOKEN`, the registration request is:
+
+```bash
+curl --disable --silent --show-error --fail-with-body \
+  --proto '=https' \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --header "proxy-ticket: $MAAP_TOKEN" \
+  --data '{"executionUnit":{"href":"https://raw.githubusercontent.com/MAAP-Project/dps-import-cogs/<REVIEWED_COMMIT_SHA>/happy-face-demo.cwl"}}' \
+  https://api.maap-project.org/api/ogc/processes
+```
+
+A new process is expected to return HTTP 201 (or 200). If MAAP reports a conflict for this **distinct** process, inspect the response's process ID before deciding whether to update that same demo via `PUT /api/ogc/processes/{processID}` with the same payload; do not target or replace the production **DPS STAC Item Generator**. HTTP 202 means deployment is asynchronous: follow the returned deployment-job link/ID under `https://api.maap-project.org/api/ogc/deploymentJobs` and verify successful completion before considering the process available. Use the authenticated MAAP OGC API and deployment conventions in [the release workflow](.github/workflows/release.yml); do not put the token in a URL or follow an untrusted status link while sending it.
+
+Required approval checkpoints: choose and publish the reviewed source revision/CWL URL, publish the matching GHCR image (including its visibility or worker pull credentials), and authorize the OGC registration/deployment. This worktree intentionally performs none of these actions and submits no DPS job.
+
 ## Output and visualization
 
 The output hierarchy is **Catalog -> Item**, with no Collection layer:
