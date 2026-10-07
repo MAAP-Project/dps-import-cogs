@@ -44,7 +44,8 @@ jobs:
 
   test:
     name: Test Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    # Keep the source-build GDAL API at Ubuntu 24.04's tested 3.8.x version.
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     strategy:
@@ -65,6 +66,13 @@ jobs:
         env:
           PYTHON_VERSION: ${{ matrix.python-version }}
         run: uv python install "$PYTHON_VERSION"
+
+      - name: Install native Rasterio build dependencies
+        if: matrix.python-version == '3.14'
+        # Locked Rasterio 1.4.3 has wheels for 3.12/3.13, but not 3.14.
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends build-essential libgdal-dev
 
       - name: Run tests
         env:

@@ -1,6 +1,9 @@
 """Regression tests for the installed CLI and application package metadata."""
 
 import json
+import os
+import shlex
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -34,19 +37,9 @@ def test_application_package_versions_agree() -> None:
     )
 
 
-@pytest.mark.parametrize(
-    ("filters", "expected_ids"),
-    [
-        ([], {"image"}),
-        (["--include-extensions=", "--exclude-extensions="], {"image", "extra"}),
-        (["--include-extensions=", "--exclude-extensions=.dat"], {"image"}),
-        (["--include-extensions=.dat", "--exclude-extensions="], {"extra"}),
-    ],
-)
-def test_installed_cli_preserves_extension_arguments(
-    tmp_path: Path, filters: list[str], expected_ids: set[str]
-) -> None:
-    """Default, empty, and explicit filters affect the real generated catalog."""
+@pytest.fixture
+def raster_source(tmp_path: Path) -> Path:
+    """Create readable rasters with a default suffix and an unlisted suffix."""
     source = tmp_path / "source"
     source.mkdir()
     image = source / "image.tif"
@@ -64,7 +57,23 @@ def test_installed_cli_preserves_extension_arguments(
         dataset.write(np.array([[[42]]], dtype="uint16"))
     # A readable raster with an unlisted suffix distinguishes empty from default.
     (source / "extra.dat").write_bytes(image.read_bytes())
+    return source
 
+
+@pytest.mark.parametrize(
+    ("filters", "expected_ids"),
+    [
+        ([], {"image"}),
+        (["--include-extensions=", "--exclude-extensions="], {"image", "extra"}),
+        (["--include-extensions=", "--exclude-extensions=.dat"], {"image"}),
+        (["--include-extensions=.dat", "--exclude-extensions="], {"extra"}),
+    ],
+)
+def test_installed_cli_preserves_extension_arguments(
+    tmp_path: Path, raster_source: Path, filters: list[str], expected_ids: set[str]
+) -> None:
+    """Default, empty, and explicit filters affect the real generated catalog."""
+    source = raster_source
     result = subprocess.run(
         [
             str(Path(sys.executable).with_name("dps-stac-item-generator")),
@@ -85,4 +94,83 @@ def test_installed_cli_preserves_extension_arguments(
     catalog = Catalog.from_file(str(tmp_path / "output" / "catalog.json"))
     items = list(catalog.get_items(recursive=True))
     assert {item.id for item in items} == expected_ids
-    assert all("asset" in item.assets for item in items)
+    for item in items:
+        suffix = ".tif" if item.id == "image" else ".dat"
+        assert item.assets["asset"].href == (source / f"{item.id}{suffix}").as_uri()
+    assert not list((tmp_path / "output").rglob("*.tif"))
+
+
+@pytest.mark.skipif(
+    os.environ.get("CWL_CONTAINER_TEST") != "1",
+    reason="Opt-in check requires cwltool, Docker, and the locally built release image",
+)
+@pytest.mark.parametrize(
+    ("filters", "expected_ids"),
+    [
+        ({}, {"image"}),
+        ({"include_extensions": "", "exclude_extensions": ""}, {"image", "extra"}),
+        ({"include_extensions": "", "exclude_extensions": ".dat"}, {"image"}),
+        ({"include_extensions": ".tif", "exclude_extensions": ".tif"}, set()),
+    ],
+)
+def test_cwl_container_returns_catalog_offline(
+    tmp_path: Path,
+    raster_source: Path,
+    filters: dict[str, str],
+    expected_ids: set[str],
+) -> None:
+    """Execute the unmodified workflow offline with mounted real source rasters."""
+    docker = shutil.which("docker")
+    cwltool = shutil.which("cwltool")
+    assert docker and cwltool, "Install Docker and run pytest with --with cwltool"
+    # source is intentionally a URL string, not a staged CWL Directory. Add a
+    # read-only fixture mount while leaving cwltool's container invocation intact.
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    wrapper = bin_dir / "docker"
+    mount = f"type=bind,source={raster_source},target={raster_source},readonly"
+    wrapper.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = run ]; then\n'
+        "  shift\n"
+        f'  exec {shlex.quote(docker)} run --mount {shlex.quote(mount)} "$@"\n'
+        "fi\n"
+        f'exec {shlex.quote(docker)} "$@"\n'
+    )
+    wrapper.chmod(0o755)
+    job = tmp_path / "job.json"
+    job.write_text(json.dumps({"source": raster_source.as_uri(), **filters}))
+    result = subprocess.run(
+        [
+            cwltool,
+            "--skip-schemas",
+            "--disable-pull",
+            "--custom-net",
+            "none",
+            "--outdir",
+            str(tmp_path / "result"),
+            str(ROOT / "dps-import-cogs.cwl"),
+            str(job),
+        ],
+        env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"},
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    output = json.loads(result.stdout)["output"]
+    assert output["class"] == "Directory"
+    catalog_path = Path(output["path"]) / "catalog.json"
+    catalog = Catalog.from_file(str(catalog_path))
+    assert list(catalog.get_children()) == []
+    items = list(catalog.get_items())
+    assert {item.id for item in items} == expected_ids
+    assert len(list(catalog_path.parent.rglob("*.json"))) == len(items) + 1
+    assert not list(catalog_path.parent.rglob("*.tif"))
+    for item in items:
+        suffix = ".tif" if item.id == "image" else ".dat"
+        assert (
+            item.assets["asset"].href == (raster_source / f"{item.id}{suffix}").as_uri()
+        )
+        assert item.bbox == [-180.0, 89.0, -179.0, 90.0]

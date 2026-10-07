@@ -152,7 +152,7 @@ Append visualization parameters such as `&colormap_name=viridis&rescale=0,100` a
 
 ## Local checks
 
-Run the code tests and generate real fixtures without MAAP or remote storage:
+Run the code tests and generate real fixtures without MAAP or remote storage. The release workflow tests also require Bash, Git, and `jq`; they fake only HTTP and polling sleeps, never contact MAAP, and check registration/update failures and polling URL safety.
 
 ```bash
 uv run --frozen pytest
@@ -160,17 +160,25 @@ uv run --frozen python scripts/local_format_smoke_test.py --help
 uv run --frozen python scripts/local_format_smoke_test.py
 ```
 
+To exercise the actual CWL workflow and container, first build a local image tagged exactly as the current CWL's `dockerPull`, then run:
+
+```bash
+CWL_CONTAINER_TEST=1 uv run --frozen --with cwltool pytest tests/test_application_package.py
+```
+
+These opt-in tests mount tiny source rasters read-only, disable image pulls and schema downloads, and run containers with networking disabled. They verify the returned `Directory`, source asset URLs, default/empty filters, and an empty catalog. They skip during ordinary pytest runs when Docker and the matching image are not requested.
+
 The smoke script runs the Python entry point using its current interpreter. It creates tiny GeoTIFF and COG fixtures, plus NetCDF, JPEG 2000, PNG, and JPEG when `gdal_translate` is available and HDF5 when `h5import` is available. It logs the `/tmp/dps-stac-local-*` input and output paths and leaves them for inspection. Use `--work-dir` to choose a directory. Some fixture formats lack georeferencing; rio-stac warns and uses a world bbox for those assets.
 
 ## CI, releases, and deployment
 
-CI runs code-quality checks and Python tests, validates the CWL application package, and tests the container. Main-branch builds publish the `latest` image. Published releases publish version-tagged and commit-SHA-tagged images before MAAP registration. Deployment uses a commit-pinned CWL URL and polls MAAP until registration succeeds or fails; publishing an image alone does not prove deployment succeeded.
+CI runs code-quality checks and Python 3.12–3.14 tests, validates the CWL application package, and tests the container. Locked Rasterio 1.4.3 has no Python 3.14 wheel, so that matrix entry builds it against Ubuntu 24.04's native GDAL 3.8.x with `build-essential` and `libgdal-dev`; local Python 3.14 testing needs equivalent GDAL headers and compiler tooling. Main-branch builds publish the `latest` image. Published releases publish version-tagged and commit-SHA-tagged images before MAAP registration. Deployment uses a commit-pinned CWL URL and polls MAAP until registration succeeds or fails; publishing an image alone does not prove deployment succeeded.
 
 Repository administrators must configure:
 
-- `RELEASE_PLEASE_TOKEN` with permission to create/update release PRs and publish releases. A dedicated token allows those events to trigger the downstream release workflow.
+- A `release-please` GitHub environment that allows the `main` branch, with no required reviewers or wait timer if releases should remain automatic. Store `RELEASE_PLEASE_TOKEN` there (or as a repository secret) with permission to create/update release PRs and publish releases. Use a dedicated PAT or GitHub App token, not `GITHUB_TOKEN`, so published releases trigger the downstream release workflow. Environment protection rules can otherwise leave release automation waiting for approval.
 - `MAAP_TOKEN` in the `production` GitHub environment for production registration and deployment polling.
 - GHCR pull access for MAAP workers and local users. Make the package public or provide registry credentials through the execution environment.
-- `production` environment protections, including deployment branch restrictions and any required reviewers. Deployment waits for approval when those rules require it.
+- `production` environment protections that allow release tags (`v*`), plus any required reviewers. The release workflow runs against a tag, so a branch-only `main` restriction blocks deployment. Deployment waits for approval when those rules require it.
 
 Keep release metadata and image tags in sync through release automation. Configure examples with the deployed version rather than assuming the migration's starting metadata identifies a live process.
