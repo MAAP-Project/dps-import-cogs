@@ -306,6 +306,10 @@ def run(
                 raise ValueError(
                     f"Item {item_id!r} missing reference asset {reference!r}"
                 )
+            if next(entry for entry in entries if entry[4] == reference)[3]:
+                raise ValueError(
+                    f"Reference asset {reference!r} for Item {item_id!r} must be a raster"
+                )
 
     if config.get("item_id_template"):
         for item_id, entries in planned.items():
