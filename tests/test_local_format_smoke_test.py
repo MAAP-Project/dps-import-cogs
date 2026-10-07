@@ -77,13 +77,23 @@ def test_smoke_script_generates_real_catalog_without_optional_tools(
     assert len(list(output_dir.rglob("*.json"))) == expected_count + 1
     assert not list(output_dir.rglob("*.tif"))
     if expected_count:
-        assert {item.id for item in items} == {"sample-geotiff", "sample-cog"}
+        assert {item.assets["asset"].href for item in items} == {
+            (tmp_path / "input" / name).as_uri()
+            for name in ("sample-geotiff.tif", "sample-cog.tif")
+        }
+        assert all(
+            item.id.startswith(Path(item.assets["asset"].href).stem + "-")
+            for item in items
+        )
     for item in items:
         asset = item.assets["asset"]
-        assert asset.href == (tmp_path / "input" / f"{item.id}.tif").as_uri()
+        assert asset.href in {
+            (tmp_path / "input" / "sample-geotiff.tif").as_uri(),
+            (tmp_path / "input" / "sample-cog.tif").as_uri(),
+        }
         # A tiny GTiff can also satisfy COG validation.
         assert asset.media_type in {MediaType.COG, MediaType.GEOTIFF}
-        if item.id == "sample-cog":
+        if Path(asset.href).stem == "sample-cog":
             assert asset.media_type == MediaType.COG
         assert item.bbox == [-180.0, 82.0, -172.0, 90.0]
         assert ProjectionExtension.ext(item).epsg == 4326

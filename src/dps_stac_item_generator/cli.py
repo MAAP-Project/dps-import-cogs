@@ -4,7 +4,7 @@ import argparse
 import logging
 from pathlib import Path
 
-from dps_stac_item_generator.generator import DEFAULT_INCLUDE_EXTENSIONS, run
+from dps_stac_item_generator.generator import run
 
 
 def configure_logging() -> None:
@@ -41,13 +41,26 @@ def main() -> None:
     )
     parser.add_argument(
         "--include-extensions",
-        default=",".join(DEFAULT_INCLUDE_EXTENSIONS),
+        default=None,
         help="Comma-separated list of file extensions to include. Use an empty string to include all files.",
     )
     parser.add_argument(
         "--exclude-extensions",
         default="",
         help="Comma-separated list of file extensions to exclude. Exclusions override inclusions.",
+    )
+    parser.add_argument(
+        "--config", type=Path, help="Optional JSON cataloging configuration."
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List planned Items and assets without reading rasters or publishing.",
+    )
+    parser.add_argument(
+        "--legacy-naming",
+        action="store_true",
+        help="Use pre-flexible-catalog IDs; collisions still fail.",
     )
     args = parser.parse_args()
 
@@ -57,6 +70,9 @@ def main() -> None:
         region=args.region,
         include_extensions=args.include_extensions,
         exclude_extensions=args.exclude_extensions,
+        config_path=args.config,
+        dry_run=args.dry_run,
+        legacy_naming=args.legacy_naming,
     )
 
 

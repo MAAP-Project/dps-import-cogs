@@ -2,6 +2,25 @@
 
 Create STAC metadata for existing raster files in object storage (S3, Azure, GCS, etc.) or a local `file://` directory. The generator lists objects with `obstore`, applies extension filters, reads raster metadata with `rio-stac`, and writes a self-contained STAC catalog. It references the source assets without copying rasters.
 
+## Quick start (no config)
+
+```bash
+uv sync --frozen
+uv run --frozen main.py --source "s3://bucket/path/to/files/" --output_dir /tmp/stac-output
+```
+
+With no config, each selected raster becomes an Item with asset key `asset`. Its ID is a readable filename stem plus a 12-character SHA-256 digest of the canonical full source URL, including extension. This makes repeated basenames in different directories, prefixes, and formats distinct, independent of listing order. Moving or renaming a source changes its generated ID. `--legacy-naming` requests the prior path-based ID style where safe; collisions still fail.
+
+## Optional path configuration
+
+Pass `--config examples/filename-grouped.json` for path-based selection/grouping, and use `--dry-run` to inspect the mapping without raster reads or output publication. See [`examples/`](examples/README.md) for selection and grouping layouts, including raster-plus-thumbnail.
+
+Config paths are POSIX object paths relative to `--source`, not absolute URLs or local filesystem paths. The single `path_pattern` regex is matched against the entire relative path (`fullmatch`); named captures may be substituted with `{capture}` in templates. Templates are substitution-only and do not evaluate expressions. Grouped configs require `item_id_template`, `asset_key_template`, `datetime_template` (ISO-8601 with timezone), and `reference_asset`. `required_assets` may list keys that each Item must contain. Selection-only configs omit `item_id_template` and retain safe per-file IDs and rio-stac datetime behavior.
+
+Extension filters apply before pattern matching; exclusions always win. Configured `non_raster_assets` suffixes are added to the default `.tif,.tiff,.nc` allowlist, so explicitly mapped attachments such as `.png` are not silently dropped. An explicitly supplied `--include-extensions` replaces that allowlist; exclusions still win. Omit it to retain the config-aware defaults, especially when mapping attachments. Unmatched paths are counted in dry-run output.
+
+Common config errors include invalid JSON/unknown fields, an invalid or non-matching regex, templates referencing absent captures, unsafe IDs/asset keys, missing required/reference assets, and duplicate IDs/asset keys. Plan validation occurs before raster metadata extraction. Listing is still needed for dry-run; manifests are not supported.
+
 ## MAAP interface and inputs
 
 Register MAAP jobs through `dps-import-cogs.cwl`, the sole MAAP interface. This OGC Application Package uses CWL v1.2, Workflow ID `generate_stac_items`, and title **DPS STAC Item Generator**. The migration removes the legacy DPS configuration and shell wrappers; it keeps the Python generator's defaults and STAC output structure.
@@ -10,8 +29,11 @@ Register MAAP jobs through `dps-import-cogs.cwl`, the sole MAAP interface. This 
 | --- | --- | --- |
 | `source` | Required | Object-storage URL or local directory URL to list |
 | `region` | `us-west-2` | AWS region for the storage container |
-| `include_extensions` | `.tif,.tiff,.nc` | Comma-separated extensions; an explicit empty string includes all files |
+| `include_extensions` | Omitted (effective default `.tif,.tiff,.nc`) | Comma-separated extensions; an explicit empty string includes all files |
 | `exclude_extensions` | Empty string | Comma-separated extensions to exclude; exclusions override inclusions |
+| `config` | Omitted | Optional JSON cataloging configuration |
+
+CWL exposes `config` but not `--dry-run`: the workflow contract returns a catalog `Directory`, while dry-run intentionally publishes no output artifact. Run dry-run through the Python/CLI interface.
 
 CWL fixes the internal `output_dir` to `output` and returns that directory as a `Directory` output. It does not accept an `output_dir` input. Python and the installed CLI require you to specify the output directory.
 
@@ -41,7 +63,7 @@ uv run --frozen dps-stac-item-generator \
   --exclude-extensions ""
 ```
 
-Use `--include-extensions ""` to include all files. For local data, set `--source` to an absolute directory URL such as `file:///tmp/input`.
+Use `--include-extensions ""` to include all files. For local data, set `--source` to an absolute directory URL such as `file:///tmp/input`. `--dry-run` logs the planned mapping and unmatched/filtered counts without raster reads or catalog output.
 
 ## Docker and local CWL
 
@@ -145,7 +167,7 @@ output/
     └── <item-id>.json
 ```
 
-Each matching raster gets an Item with an `asset` pointing to its existing source URL. Items include projection and raster band metadata where `rio-stac` can derive it. The catalog's self-contained links connect the STAC JSON files; the raster assets still require access to the original storage location.
+Without config, each matching raster gets an Item with an `asset` pointing to its existing source URL. In grouped mode, each raster is extracted separately through `rio-stac`; projection and raster fields are retained on their own asset, while the configured reference raster supplies Item geometry and bbox. A configured non-raster attachment is represented directly as a STAC asset and is never opened as a raster. The catalog's self-contained links connect the STAC JSON files; the assets still require access to original storage.
 
 The migrated process does not establish the old `GenerateStacItems` algorithm identity or the old username/algorithm/version/tag collection-ID pattern. Do not assume automatic DPS User STAC ingestion or construct a collection ID from those values. Check the deployed service's job results and ingestion behavior.
 

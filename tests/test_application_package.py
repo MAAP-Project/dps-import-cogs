@@ -93,10 +93,17 @@ def test_installed_cli_preserves_extension_arguments(
     assert result.returncode == 0, result.stderr
     catalog = Catalog.from_file(str(tmp_path / "output" / "catalog.json"))
     items = list(catalog.get_items(recursive=True))
-    assert {item.id for item in items} == expected_ids
+    assert {
+        Path(item.assets["asset"].href).stem.split(".")[0] for item in items
+    } == expected_ids
+    assert len({item.id for item in items}) == len(items)
     for item in items:
-        suffix = ".tif" if item.id == "image" else ".dat"
-        assert item.assets["asset"].href == (source / f"{item.id}{suffix}").as_uri()
+        asset_href = item.assets["asset"].href
+        assert asset_href in {
+            (source / "image.tif").as_uri(),
+            (source / "extra.dat").as_uri(),
+        }
+        assert item.id.startswith(Path(asset_href).stem + "-")
     assert not list((tmp_path / "output").rglob("*.tif"))
 
 
@@ -165,12 +172,16 @@ def test_cwl_container_returns_catalog_offline(
     catalog = Catalog.from_file(str(catalog_path))
     assert list(catalog.get_children()) == []
     items = list(catalog.get_items())
-    assert {item.id for item in items} == expected_ids
+    assert {
+        Path(item.assets["asset"].href).stem.split(".")[0] for item in items
+    } == expected_ids
     assert len(list(catalog_path.parent.rglob("*.json"))) == len(items) + 1
     assert not list(catalog_path.parent.rglob("*.tif"))
     for item in items:
-        suffix = ".tif" if item.id == "image" else ".dat"
-        assert (
-            item.assets["asset"].href == (raster_source / f"{item.id}{suffix}").as_uri()
-        )
+        asset_href = item.assets["asset"].href
+        assert asset_href in {
+            (raster_source / "image.tif").as_uri(),
+            (raster_source / "extra.dat").as_uri(),
+        }
+        assert item.id.startswith(Path(asset_href).stem + "-")
         assert item.bbox == [-180.0, 89.0, -179.0, 90.0]

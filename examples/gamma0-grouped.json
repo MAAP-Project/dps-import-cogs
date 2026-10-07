@@ -1,0 +1,11 @@
+{
+  "path_pattern": "(?P<tile>[^/]+)/(?P<date>\\d{4}-\\d{2}-\\d{2})/(?P<scene>[^/]+)/(?:gamma0_)?(?P<band>hh|hv|thumbnail)\\.(?P<extension>tif|png)",
+  "item_id_template": "biomass-{scene}-{tile}-{date}",
+  "asset_key_template": "{band}",
+  "datetime_template": "{date}T00:00:00Z",
+  "reference_asset": "hh",
+  "required_assets": ["hh", "hv", "thumbnail"],
+  "non_raster_assets": {
+    ".png": {"media_type": "image/png", "roles": ["thumbnail"]}
+  }
+}
