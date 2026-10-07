@@ -6,6 +6,7 @@ import argparse
 import logging
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -134,48 +135,10 @@ def log_rasterio_open_results(paths: list[Path]) -> None:
             )
 
 
-def run_generator(
-    args: argparse.Namespace, repo_root: Path, source: str, output_dir: Path
-) -> None:
-    """Run the project entry point selected by the caller."""
-    if args.runner == "run-sh":
-        run_command(
-            [
-                str(repo_root / "run.sh"),
-                source,
-                args.region,
-                args.include_extensions,
-                args.exclude_extensions,
-            ],
-            cwd=output_dir.parent,
-        )
-        return
-
-    run_command(
-        [
-            "uv",
-            "run",
-            str(repo_root / "main.py"),
-            f"--source={source}",
-            f"--output_dir={output_dir}",
-            f"--region={args.region}",
-            f"--include-extensions={args.include_extensions}",
-            f"--exclude-extensions={args.exclude_extensions}",
-        ],
-        cwd=repo_root,
-    )
-
-
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
         description="Generate local GDAL/rasterio fixtures in /tmp and run this project against them."
-    )
-    parser.add_argument(
-        "--runner",
-        choices=("main-py", "run-sh"),
-        default="main-py",
-        help="Project entry point to exercise.",
     )
     parser.add_argument(
         "--work-dir",
@@ -189,7 +152,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """Generate fixtures, run the STAC item generator, and print output paths."""
+    """Generate fixtures, run the Python STAC generator, and log output paths."""
     configure_logging()
     args = parse_args()
     repo_root = Path(__file__).resolve().parents[1]
@@ -204,7 +167,18 @@ def main() -> None:
     log_rasterio_open_results(fixtures)
 
     source = input_dir.resolve().as_uri()
-    run_generator(args, repo_root, source, output_dir)
+    run_command(
+        [
+            sys.executable,
+            str(repo_root / "main.py"),
+            f"--source={source}",
+            f"--output_dir={output_dir}",
+            f"--region={args.region}",
+            f"--include-extensions={args.include_extensions}",
+            f"--exclude-extensions={args.exclude_extensions}",
+        ],
+        cwd=repo_root,
+    )
 
     LOGGER.info("input fixtures: %s", input_dir)
     LOGGER.info("STAC output: %s", output_dir)
