@@ -147,6 +147,33 @@ def test_plan_errors_and_dry_run_precede_raster_reads(
     assert not (tmp_path / "dry").exists()
 
 
+def test_attachment_cannot_be_reference_asset_before_raster_reads(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A non-raster reference is rejected during planning, before opening rasters."""
+    paths = [
+        "32TPR/2026-01-01/source-A/gamma0_hh.tif",
+        "32TPR/2026-01-01/source-A/gamma0_hv.tif",
+        "32TPR/2026-01-01/source-A/thumbnail.png",
+    ]
+    install_listing(monkeypatch, paths)
+    config = json.loads((ROOT / "examples/gamma0-grouped.json").read_text())
+    config["reference_asset"] = "thumbnail"
+    config_path = tmp_path / "attachment-reference.json"
+    config_path.write_text(json.dumps(config))
+    monkeypatch.setattr(
+        generator, "create_stac_item", lambda **_kwargs: pytest.fail("raster opened")
+    )
+
+    with pytest.raises(ValueError, match="must be a raster"):
+        generator.run(
+            source="s3://bucket/input",
+            output_dir=tmp_path / "out",
+            config_path=config_path,
+        )
+    assert not (tmp_path / "out").exists()
+
+
 def test_extension_filtered_file_is_never_opened(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -181,6 +208,40 @@ def test_failed_raster_read_leaves_published_catalog_unchanged(
     assert not (output / "catalog.json").exists()
 
 
+def test_staged_publication_failure_restores_existing_output(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A failed stage rename restores the previously published catalog."""
+    source = tmp_path / "source"
+    write_raster(source / "replacement.tif")
+    install_listing(monkeypatch, ["replacement.tif"])
+    monkeypatch.setattr(generator, "is_cloud_optimized_geotiff", lambda _href: False)
+    output = tmp_path / "out"
+    output.mkdir()
+    existing = output / "keep.txt"
+    existing.write_text("published")
+
+    original_rename = Path.rename
+    failed = False
+
+    def fail_stage_publish(path: Path, target: Path) -> Path:
+        nonlocal failed
+        if path.name.startswith(".out.stage-") and target == output and not failed:
+            failed = True
+            raise OSError("simulated publication failure")
+        return original_rename(path, target)
+
+    monkeypatch.setattr(Path, "rename", fail_stage_publish)
+    with pytest.raises(OSError, match="simulated publication failure"):
+        generator.run(source=source.as_uri(), output_dir=output)
+
+    assert failed
+    assert existing.read_text() == "published"
+    assert not (output / "catalog.json").exists()
+    assert not (tmp_path / ".out.backup").exists()
+    assert not list(tmp_path.glob(".out.stage-*"))
+
+
 def test_invalid_config_is_rejected_before_listing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -197,10 +258,18 @@ def test_invalid_config_is_rejected_before_listing(
 
 
 @pytest.mark.parametrize(
-    ("config_name", "paths"),
+    ("config_name", "paths", "expected_plan"),
     [
-        ("directory-per-item.json", ["32TPR/red.tif", "32TPR/nir.tif"]),
-        ("filename-grouped.json", ["scene-1_red.tif", "scene-1_nir.tif"]),
+        (
+            "directory-per-item.json",
+            ["tiles/32TPR/red.tif", "tiles/32TPR/nir.tif"],
+            "Item tile-32TPR: nir=tiles/32TPR/nir.tif, red=tiles/32TPR/red.tif",
+        ),
+        (
+            "filename-grouped.json",
+            ["scenes/scene-1_red.tif", "scenes/scene-1_nir.tif"],
+            "Item scene-1: nir=scenes/scene-1_nir.tif, red=scenes/scene-1_red.tif",
+        ),
         (
             "gamma0-grouped.json",
             [
@@ -208,6 +277,7 @@ def test_invalid_config_is_rejected_before_listing(
                 "32TPR/2026-01-01/source-A/gamma0_hv.tif",
                 "32TPR/2026-01-01/source-A/thumbnail.png",
             ],
+            "Item biomass-source-A-32TPR-2026-01-01:",
         ),
     ],
 )
@@ -216,6 +286,7 @@ def test_shipped_group_configs_match_documented_paths(
     tmp_path: Path,
     config_name: str,
     paths: list[str],
+    expected_plan: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Every shipped grouping config produces its documented mapping in dry-run."""
@@ -228,4 +299,5 @@ def test_shipped_group_configs_match_documented_paths(
         dry_run=True,
     )
     assert "Plan: 1 item(s), 0 unmatched, 0 filtered" in caplog.text
+    assert expected_plan in caplog.text
     assert not (tmp_path / "out").exists()
