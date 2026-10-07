@@ -13,7 +13,7 @@ With no config, each selected raster becomes an Item with asset key `asset`. Its
 
 ## Optional path configuration
 
-Pass `--config examples/filename-grouped.json` for path-based selection/grouping, and use `--dry-run` to inspect the mapping without raster reads or output publication. See [`examples/`](examples/README.md) for selection and grouping layouts, including raster-plus-thumbnail.
+Pass `--config examples/filename-grouped.json` for path-based selection/grouping, and use `--dry-run` to inspect the mapping without raster reads or output publication. See [`examples/`](examples/README.md) for selection and grouping layouts, including a runnable two-tile RGB happy-face demo.
 
 Config paths are POSIX object paths relative to `--source`, not absolute URLs or local filesystem paths. The single `path_pattern` regex is matched against the entire relative path (`fullmatch`); named captures may be substituted with `{capture}` in templates. Templates are substitution-only and do not evaluate expressions. Grouped configs require `item_id_template`, `asset_key_template`, `datetime_template` (ISO-8601 with timezone), and `reference_asset`. `required_assets` may list keys that each Item must contain. Selection-only configs omit `item_id_template` and retain safe per-file IDs and rio-stac datetime behavior.
 

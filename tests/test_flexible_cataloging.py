@@ -316,6 +316,22 @@ def test_invalid_config_is_rejected_before_listing(
                 "thumbnail=scene-1/thumbnail.png"
             ],
         ),
+        (
+            "happy-face.json",
+            [
+                f"{tile}/{channel}.tif"
+                for tile in ("left", "right")
+                for channel in ("red", "green", "blue")
+            ],
+            2,
+            0,
+            [
+                "Item happy-face-left: blue=left/blue.tif, "
+                "green=left/green.tif, red=left/red.tif",
+                "Item happy-face-right: blue=right/blue.tif, "
+                "green=right/green.tif, red=right/red.tif",
+            ],
+        ),
     ],
 )
 def test_shipped_configs_match_documented_paths(

@@ -1,0 +1,8 @@
+{
+  "path_pattern": "(?P<tile>left|right)/(?P<channel>red|green|blue)\\.tif",
+  "item_id_template": "happy-face-{tile}",
+  "asset_key_template": "{channel}",
+  "datetime_template": "2026-01-01T00:00:00Z",
+  "reference_asset": "red",
+  "required_assets": ["red", "green", "blue"]
+}
