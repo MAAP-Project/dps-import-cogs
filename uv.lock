@@ -318,6 +318,7 @@ wheels = [
 
 [[package]]
 name = "dps-stac-item-generator"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "obstore" },
@@ -347,7 +348,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "ipython", specifier = ">=9.8.0" },
-    { name = "maap-py", specifier = ">=4.2.0" },
+    { name = "maap-py", specifier = ">=5.1.0" },
     { name = "mypy", specifier = ">=1.18.2" },
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "pytest", specifier = ">=9.1.1" },
@@ -598,7 +599,7 @@ wheels = [
 
 [[package]]
 name = "maap-py"
-version = "4.2.0"
+version = "5.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "backoff" },
@@ -609,9 +610,9 @@ dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ea/76/ba194a12f995a1edf927ea87f5d7f7aac78aacee90d019ff6c5a8c9d1e97/maap_py-4.2.0.tar.gz", hash = "sha256:17a6b780f606381a1e531e89d2f5857a730b65bee1efe04888f98d1b71cbc1cf", size = 25182, upload-time = "2025-03-19T22:28:49.596Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/af/e1/212133b17658e4c76855b44b85da6f09f7a9fb0b576852d6f72f83b3a770/maap_py-5.1.0.tar.gz", hash = "sha256:15154c73f9e123eb2192ae900ebea5d11c601a5f37c1862b7fb4720cda5d8ac1", size = 38509, upload-time = "2026-07-06T22:54:14.156Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b1/cc/489f27424422daa49b8038650464736aa4a4c2bd554911887a5b13f7125d/maap_py-4.2.0-py3-none-any.whl", hash = "sha256:a76027a893d49dda546a29096a102ccb2fe3f1981f3c98000cffa9cade6861b3", size = 30459, upload-time = "2025-03-19T22:28:48.291Z" },
+    { url = "https://files.pythonhosted.org/packages/50/bc/a8f7b35553a74738e8f9e4c399d9874f38a71bc15699bcced007be33df5b/maap_py-5.1.0-py3-none-any.whl", hash = "sha256:306e73d4ee4e8582739d6c02df0ca4af3efd782d92356d867ea49859b103976d", size = 45888, upload-time = "2026-07-06T22:54:13.076Z" },
 ]
 
 [[package]]

@@ -1,0 +1,293 @@
+name: Release MAAP OGC application package
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+concurrency:
+  group: maap-ogc-production
+  cancel-in-progress: false
+
+env:
+  IMAGE_REPOSITORY: ghcr.io/maap-project/dps-import-cogs
+  MAAP_OGC_PROCESSES_URL: https://api.maap-project.org/api/ogc/processes
+  MAAP_OGC_DEPLOYMENT_JOBS_URL: https://api.maap-project.org/api/ogc/deploymentJobs
+
+jobs:
+  validate:
+    name: Validate published release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.revision.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.*"
+          enable-cache: false
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Validate release tag and version metadata
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          # Reuse the validator's isolated PyYAML environment, not project dependencies.
+          uvx --python 3.13 --with pyyaml --from ogc-ap-validator python - <<'PY'
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          import yaml
+
+          tag = os.environ["RELEASE_TAG"]
+          if not re.fullmatch(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", tag):
+              raise SystemExit("Release tag must be a stable vMAJOR.MINOR.PATCH version")
+          version = tag[1:]
+          project = tomllib.loads(Path("pyproject.toml").read_text())["project"]
+          if project.get("version") != version or "version" in project.get("dynamic", []):
+              raise SystemExit("Release tag does not match explicit pyproject version")
+          lock = tomllib.loads(Path("uv.lock").read_text())
+          packages = [p for p in lock["package"] if p["name"] == "dps-stac-item-generator"]
+          if len(packages) != 1 or packages[0].get("version") != version:
+              raise SystemExit("Release tag does not match the project's uv.lock package version")
+          cwl = yaml.safe_load(Path("dps-import-cogs.cwl").read_text())
+          namespaces = cwl.get("$namespaces", {})
+          for field in ("softwareVersion", "version"):
+              values = [cwl[f"{prefix}:{field}"] for prefix, uri in namespaces.items()
+                        if uri in ("https://schema.org/", "http://schema.org/")
+                        and f"{prefix}:{field}" in cwl]
+              if values != [version]:
+                  raise SystemExit(f"CWL schema.org {field} does not match the release tag")
+          nodes = cwl.get("$graph", [cwl])
+          workflows = [node for node in nodes if node.get("class") == "Workflow"]
+          if (len(workflows) != 1
+                  or workflows[0].get("id") != "generate_stac_items"
+                  or workflows[0].get("label") != "DPS STAC Item Generator"):
+              raise SystemExit("Unexpected CWL workflow ID or title")
+          docker_pulls = []
+          pending = [cwl]
+          while pending:
+              node = pending.pop()
+              if isinstance(node, dict):
+                  if "dockerPull" in node:
+                      docker_pulls.append(node["dockerPull"])
+                  pending.extend(node.values())
+              elif isinstance(node, list):
+                  pending.extend(node)
+          expected_image = f"{os.environ['IMAGE_REPOSITORY']}:{tag}"
+          if not docker_pulls or any(image != expected_image for image in docker_pulls):
+              raise SystemExit("CWL dockerPull must use the exact release image repository and tag")
+          PY
+
+      - name: Validate CWL and OGC application package
+        run: |
+          set -euo pipefail
+          uvx --from cwltool cwltool --validate dps-import-cogs.cwl
+          uvx --with pyyaml --from ogc-ap-validator ap-validator --detail errors dps-import-cogs.cwl
+
+      - name: Run tests
+        run: uv run --frozen --python 3.13 --group dev pytest
+
+      - name: Record validated revision
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: Publish versioned image
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Publish only the validated release tag and full commit SHA.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - name: Verify release tag has not moved
+        env:
+          VALIDATED_SHA: ${{ needs.validate.outputs.sha }}
+        run: test "$(git rev-parse HEAD)" = "$VALIDATED_SHA"
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_REPOSITORY }}:${{ github.event.release.tag_name }}
+            ${{ env.IMAGE_REPOSITORY }}:${{ needs.validate.outputs.sha }}
+
+  deploy:
+    name: Deploy production MAAP process
+    needs: [validate, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - name: Verify release tag has not moved
+        env:
+          VALIDATED_SHA: ${{ needs.validate.outputs.sha }}
+        run: test "$(git rev-parse HEAD)" = "$VALIDATED_SHA"
+
+      - name: Register or update MAAP process
+        env:
+          MAAP_TOKEN: ${{ secrets.MAAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$MAAP_TOKEN"
+          commit_sha="$(git rev-parse HEAD)"
+          responses="$(mktemp -d)"
+          trap 'rm -rf "$responses"' EXIT
+          response="$responses/process.json"
+          headers="$responses/process.headers"
+          workflow_url="https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$commit_sha/dps-import-cogs.cwl"
+          payload="$(jq --null-input --compact-output --arg href "$workflow_url" '{executionUnit: {href: $href}}')"
+          # No redirects or curlrc: the proxy-ticket must stay on the trusted API.
+          curl_options=(--silent --show-error --connect-timeout 10 --max-time 60 --proto '=https')
+          request_url="$MAAP_OGC_PROCESSES_URL"
+          status="$(curl --disable "${curl_options[@]}" --dump-header "$headers" --output "$response" --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --header "proxy-ticket: $MAAP_TOKEN" \
+            --data "$payload" \
+            "$request_url")"
+          action=registered
+
+          if [ "$status" = "409" ]; then
+            process_id="$(jq --exit-status --raw-output '
+              (.additionalProperties.processID // .processID // .id)
+              | select(type == "string" and length > 0 and . != "." and . != "..")
+              | @uri
+            ' "$response")"
+            request_url="$MAAP_OGC_PROCESSES_URL/$process_id"
+            status="$(curl --disable "${curl_options[@]}" --dump-header "$headers" --output "$response" --write-out '%{http_code}' \
+              --request PUT \
+              --header 'Content-Type: application/json' \
+              --header "proxy-ticket: $MAAP_TOKEN" \
+              --data "$payload" \
+              "$request_url")"
+            action=updated
+          fi
+          # Apply the same success check to POST and PUT. Never accept a failed update.
+          case "$status" in
+            200|201|202) ;;
+            *)
+              printf 'MAAP registration/update failed with HTTP %s\n' "$status" >&2
+              exit 1
+              ;;
+          esac
+          printf 'MAAP process %s: HTTP %s\n' "$action" "$status"
+          if [ "$status" != "202" ]; then
+            exit 0
+          fi
+
+          deployment_id="$(jq --raw-output '
+            .deploymentID // .deploymentJobID // .deploymentJobId // .jobID // .jobId //
+            .additionalProperties.deploymentID // .additionalProperties.deploymentJobID //
+            .additionalProperties.jobID // empty
+          ' "$response" 2>/dev/null || true)"
+          deployment_url="$(jq --raw-output '
+            .deploymentJobLink.href // .additionalProperties.deploymentJobLink.href //
+            ([.links[]?
+              | select(.rel == "monitor" or .rel == "status" or .rel == "self")
+              | .href | strings | select(test("/deploymentJobs/"; "i"))] | first) // empty
+          ' "$response" 2>/dev/null || true)"
+          if [ -z "$deployment_url" ] && [ -n "$deployment_id" ]; then
+            deployment_id="$(jq --null-input --raw-output --arg id "$deployment_id" '$id | @uri')"
+            deployment_url="$MAAP_OGC_DEPLOYMENT_JOBS_URL/$deployment_id"
+          fi
+          if [ -z "$deployment_url" ]; then
+            deployment_url="$(awk 'tolower($1) == "location:" { sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit }' "$headers")"
+          fi
+          if [ -z "$deployment_url" ]; then
+            echo 'MAAP returned HTTP 202 without a deployment-job status URL or ID' >&2
+            exit 1
+          fi
+
+          # Resolve relative links with the stdlib and reject foreign origins before auth.
+          deployment_url="$(DEPLOYMENT_URL="$deployment_url" REQUEST_URL="$request_url" python3 - <<'PY'
+          import os
+          import sys
+          from urllib.parse import unquote, urljoin, urlsplit
+
+          candidate = os.environ["DEPLOYMENT_URL"]
+          trusted = urlsplit(os.environ["MAAP_OGC_DEPLOYMENT_JOBS_URL"])
+          resolved = urljoin(os.environ["REQUEST_URL"], candidate)
+          parsed = urlsplit(resolved)
+          path = unquote(parsed.path)
+          if (any(ord(char) < 32 or ord(char) == 127 for char in candidate)
+                  or parsed.scheme != "https" or parsed.netloc != trusted.netloc
+                  or parsed.username is not None or parsed.password is not None
+                  or parsed.fragment or "\\" in path
+                  or any(part in (".", "..") for part in path.split("/"))
+                  or not path.lower().startswith(trusted.path.lower() + "/")
+                  or not path[len(trusted.path) + 1:]):
+              raise SystemExit("MAAP returned an untrusted deployment-job status URL")
+          # The resolved URL stays in the shell, never in the log.
+          sys.stdout.write(resolved + "\n")
+          PY
+          )"
+
+          deadline=$((SECONDS + 1800))
+          not_found_attempts=0
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            deployment_response="$responses/deployment-status.json"
+            poll_status="$(curl --disable "${curl_options[@]}" --output "$deployment_response" --write-out '%{http_code}' \
+              --header "proxy-ticket: $MAAP_TOKEN" \
+              "$deployment_url")"
+            if [ "$poll_status" = "404" ]; then
+              not_found_attempts=$((not_found_attempts + 1))
+              if [ "$not_found_attempts" -ge 12 ]; then
+                echo 'MAAP deployment status remained unavailable (HTTP 404)' >&2
+                exit 1
+              fi
+              echo 'MAAP deployment status is not available yet; polling again in 10 seconds'
+            elif [[ "$poll_status" == 2?? ]]; then
+              deployment_status="$(jq --raw-output '
+                .status // .state // .deploymentStatus // .additionalProperties.status // empty
+              ' "$deployment_response" | tr '[:upper:]' '[:lower:]')"
+              case "$deployment_status" in
+                success|successful|succeeded|complete|completed|deployed)
+                  echo 'MAAP deployment succeeded'
+                  exit 0
+                  ;;
+                failed|failure|error|dismissed|cancelled|canceled)
+                  echo 'MAAP deployment failed' >&2
+                  exit 1
+                  ;;
+                *) echo 'MAAP deployment is pending; polling again in 10 seconds' ;;
+              esac
+            else
+              printf 'MAAP deployment status request failed with HTTP %s\n' "$poll_status" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          echo 'MAAP deployment timed out' >&2
+          exit 1

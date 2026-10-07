@@ -8,6 +8,11 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # Finish main's publication; superseded PR/feature checks can be cancelled.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   quality:
     name: Quality checks
@@ -15,43 +20,104 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           version: "0.11.*"
           enable-cache: false
 
       - name: Set up Python
-        run: uv python install 3.14
+        run: uv python install 3.13
 
       - name: Run pre-commit
-        run: uv run pre-commit run --all-files
+        run: uv run --frozen --python 3.13 --group dev pre-commit run --all-files
+
+      - name: Validate CWL and OGC application package
+        run: |
+          set -euo pipefail
+          uvx --from cwltool cwltool --validate dps-import-cogs.cwl
+          uvx --with pyyaml --from ogc-ap-validator ap-validator --detail errors dps-import-cogs.cwl
 
   test:
     name: Test Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    # Keep the source-build GDAL API at Ubuntu 24.04's tested 3.8.x version.
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     strategy:
       matrix:
         python-version: ["3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           version: "0.11.*"
           enable-cache: false
 
       - name: Set up Python
-        run: uv python install ${{ matrix.python-version }}
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
+        run: uv python install "$PYTHON_VERSION"
+
+      - name: Install native Rasterio build dependencies
+        if: matrix.python-version == '3.14'
+        # Locked Rasterio 1.4.3 has wheels for 3.12/3.13, but not 3.14.
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends build-essential libgdal-dev
 
       - name: Run tests
-        run: uv run pytest
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
+        run: uv run --frozen --python "$PYTHON_VERSION" --group dev pytest
+
+  container:
+    name: Build and smoke-test container
+    needs: [quality, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build and smoke-test image
+        run: |
+          set -euo pipefail
+          image=dps-import-cogs:ci
+          docker build --tag "$image" .
+          docker run --rm --network none "$image" /app/dps-import-cogs/.venv/bin/dps-stac-item-generator --help
+
+  publish-latest:
+    name: Publish latest image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: container
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Push the checked main revision to GHCR.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/maap-project/dps-import-cogs:latest

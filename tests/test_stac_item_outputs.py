@@ -60,7 +60,8 @@ def test_text_file_stac_item_creation_fails(tmp_path: Path) -> None:
     source.write_text("hello\n")
 
     with pytest.raises(
-        RasterioIOError, match="not recognized as being in a supported file format"
+        RasterioIOError,
+        match=r"not recognized as (?:being in )?a supported file format",
     ):
         create_stac_item(
             source=str(source),
