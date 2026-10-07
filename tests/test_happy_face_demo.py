@@ -8,7 +8,9 @@ import numpy as np
 import pytest
 import rasterio
 from pystac import Catalog
+from pystac.media_type import MediaType
 from rasterio.transform import from_origin
+from rio_cogeo.cogeo import cog_validate
 
 from dps_stac_item_generator import generator
 
@@ -41,6 +43,8 @@ def test_generated_tiles_are_adjacent_and_channels_form_one_image(
     for path in paths:
         tile = path.parent.name
         channel = path.stem
+        valid, errors, warnings = cog_validate(path)
+        assert valid, f"Invalid COG {path}: {errors}; warnings: {warnings}"
         with rasterio.open(path) as dataset:
             assert dataset.count == 1
             assert dataset.dtypes == ("uint8",)
@@ -114,3 +118,4 @@ def test_happy_face_config_catalogs_two_items_with_three_real_assets(
             asset.extra_fields["raster:bands"][0]["data_type"] == "uint8"
             for asset in item.assets.values()
         )
+        assert all(asset.media_type == MediaType.COG for asset in item.assets.values())

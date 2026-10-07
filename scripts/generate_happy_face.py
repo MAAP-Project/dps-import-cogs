@@ -59,7 +59,7 @@ def make_rgb_image(size: int) -> np.ndarray:
 
 
 def generate(output_dir: Path, size: int = DEFAULT_SIZE) -> list[Path]:
-    """Write six adjacent, single-band RGB-channel GeoTIFFs."""
+    """Write six adjacent, single-band RGB-channel Cloud Optimized GeoTIFFs."""
     if size < 32:
         raise ValueError("size must be at least 32 pixels")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -81,7 +81,7 @@ def generate(output_dir: Path, size: int = DEFAULT_SIZE) -> list[Path]:
             with rasterio.open(
                 path,
                 "w",
-                driver="GTiff",
+                driver="COG",
                 height=size,
                 width=size,
                 count=1,
@@ -93,7 +93,7 @@ def generate(output_dir: Path, size: int = DEFAULT_SIZE) -> list[Path]:
                 dataset.set_band_description(1, channel)
             created.append(path)
 
-    LOGGER.info("Wrote %d single-band GeoTIFFs under %s", len(created), output_dir)
+    LOGGER.info("Wrote %d single-band COGs under %s", len(created), output_dir)
     return created
 
 

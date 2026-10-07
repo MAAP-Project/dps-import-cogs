@@ -34,7 +34,7 @@ Inputs (and analogous sibling `33UUU` paths):
 
 ## Two-tile RGB happy face
 
-Generate six synthetic, georeferenced GeoTIFFs: `left/` and `right/`, each containing single-band `red`, `green`, and `blue` files. The global image is designed before splitting, so the colorful face and smile continue across the adjacent tile boundary.
+Generate six synthetic, georeferenced Cloud Optimized GeoTIFFs (COGs): `left/` and `right/`, each containing single-band `red`, `green`, and `blue` files. The global image is designed before splitting, so the colorful face and smile continue across the adjacent tile boundary.
 
 ```bash
 uv run python scripts/generate_happy_face.py /tmp/happy-face-rasters
@@ -42,7 +42,7 @@ uv run main.py --source "file:///tmp/happy-face-rasters" --output_dir /tmp/happy
 uv run main.py --source "file:///tmp/happy-face-rasters" --output_dir /tmp/happy-face-catalog --config examples/happy-face.json
 ```
 
-`happy-face.json` catalogs two Items (`happy-face-left` and `happy-face-right`), each with `red`, `green`, and `blue` assets. Each raster is one uint8 channel; render with `assets=red,green,blue` and `rescale=0,255`. The EPSG:3857 coordinates are arbitrary illustrative locations, not real acquisition footprints. The timezone-aware `2026-01-01` datetime is illustrative as well. These are ordinary GeoTIFFs, not COGs.
+`happy-face.json` catalogs two Items (`happy-face-left` and `happy-face-right`), each with `red`, `green`, and `blue` assets. Each raster is one uint8 channel; render with `assets=red,green,blue` and `rescale=0,255`. The EPSG:3857 coordinates are arbitrary illustrative locations, not real acquisition footprints. The timezone-aware `2026-01-01` datetime is illustrative as well. Each asset is a valid COG and is cataloged with the Cloud Optimized GeoTIFF media type.
 
 ## Raster plus thumbnail
 
