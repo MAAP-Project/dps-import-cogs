@@ -90,13 +90,20 @@ def create_item_id(path: str) -> str:
     return f"{readable}-{digest}"
 
 
-def _load_config(config_path: Path | None) -> dict:
-    if config_path is None:
+def _load_config(config_path: Path | None, config_json: str | None = None) -> dict:
+    if config_path is not None and config_json is not None:
+        raise ValueError("Use only one of config_path or config_json")
+    if config_path is None and not config_json:
         return {}
     try:
-        value = json.loads(config_path.read_text())
+        value = (
+            json.loads(config_json)
+            if config_json
+            else json.loads(config_path.read_text())
+        )
     except (OSError, json.JSONDecodeError) as error:
-        raise ValueError(f"Cannot read JSON config {config_path}: {error}") from error
+        source = "inline JSON config" if config_json else f"JSON config {config_path}"
+        raise ValueError(f"Cannot read {source}: {error}") from error
     if not isinstance(value, dict):
         raise ValueError("Config must be a JSON object")
     unknown = set(value) - _ALLOWED_CONFIG_FIELDS
@@ -217,11 +224,12 @@ def run(
     include_extensions: str | Iterable[str] | None = None,
     exclude_extensions: str | Iterable[str] | None = None,
     config_path: Path | None = None,
+    config_json: str | None = None,
     dry_run: bool = False,
     legacy_naming: bool = False,
 ) -> None:
     """Plan selected assets, extract raster metadata, and publish a STAC catalog."""
-    config = _load_config(config_path)
+    config = _load_config(config_path, config_json)
     include = (
         DEFAULT_INCLUDE_EXTENSIONS
         if include_extensions is None

@@ -37,6 +37,22 @@ def test_application_package_versions_agree() -> None:
     )
 
 
+def test_cwl_inline_config_uses_string_not_optional_file() -> None:
+    """The MAAP-facing config avoids optional CWL File input staging."""
+    cwl = safe_load((ROOT / "dps-import-cogs.cwl").read_text())
+    workflow = next(
+        process for process in cwl["$graph"] if process["id"] == "generate_stac_items"
+    )
+    tool = next(process for process in cwl["$graph"] if process["id"] == "main")
+
+    assert workflow["inputs"]["config_json"]["type"] == "string"
+    assert workflow["inputs"]["config_json"]["default"] == ""
+    assert tool["inputs"]["config_json"]["type"] == "string"
+    assert tool["inputs"]["config_json"]["inputBinding"]["prefix"] == "--config-json="
+    assert tool["inputs"]["config_json"]["inputBinding"]["separate"] is False
+    assert "config" not in workflow["inputs"]
+
+
 @pytest.fixture
 def raster_source(tmp_path: Path) -> Path:
     """Create readable rasters with a default suffix and an unlisted suffix."""

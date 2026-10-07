@@ -42,11 +42,11 @@ $graph:
         doc: Comma-separated extensions to exclude. Exclusions override inclusions.
         type: string
         default: ''
-      config:
-        label: Cataloging configuration
-        doc: Optional JSON path selection and grouping configuration.
-        type: ["null", File]
-        default: null
+      config_json:
+        label: Inline cataloging configuration
+        doc: Optional cataloging configuration serialized as a JSON string.
+        type: string
+        default: ''
     outputs:
       output:
         type: Directory
@@ -59,7 +59,7 @@ $graph:
           region: region
           include_extensions: include_extensions
           exclude_extensions: exclude_extensions
-          config: config
+          config_json: config_json
         out:
           - output
   - class: CommandLineTool
@@ -107,11 +107,13 @@ $graph:
           position: 4
           prefix: '--exclude-extensions='
           separate: false
-      config:
-        type: ["null", File]
+      config_json:
+        type: string
+        default: ''
         inputBinding:
           position: 5
-          prefix: '--config'
+          prefix: '--config-json='
+          separate: false
     outputs:
       output:
         type: Directory

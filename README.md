@@ -31,9 +31,13 @@ Register MAAP jobs through `dps-import-cogs.cwl`, the sole MAAP interface. This 
 | `region` | `us-west-2` | AWS region for the storage container |
 | `include_extensions` | Omitted (effective default `.tif,.tiff,.nc`) | Comma-separated extensions; an explicit empty string includes all files |
 | `exclude_extensions` | Empty string | Comma-separated extensions to exclude; exclusions override inclusions |
-| `config` | Omitted | Optional JSON cataloging configuration |
+| `config_json` | Empty string | Optional cataloging configuration serialized as a JSON string |
 
-CWL exposes `config` but not `--dry-run`: the workflow contract returns a catalog `Directory`, while dry-run intentionally publishes no output artifact. Run dry-run through the Python/CLI interface.
+The MAAP/CWL input is a **string**, not a native dict or a CWL `File`. A notebook can load a checked-in JSON file into a Python dict, then serialize it with `json.dumps` for `submit_job`. The CLI still supports `--config <path>` for local/file-based use and adds `--config-json <json-string>` for inline use; supplying both is rejected.
+
+CWL exposes `config_json` but not `--dry-run`: the workflow contract returns a catalog `Directory`, while dry-run intentionally publishes no output artifact. Run dry-run through the Python/CLI interface.
+
+**MAAP v0.3.0 source-only failure:** the reported traceback fails in MAAP input preparation, before the generator starts. Inspection of the available MAAP `create_inputs.py` confirms that its `File` branch unconditionally calls `os.path.basename(job_inputs.get(input_name))`; an omitted optional `File` therefore passes `None` and raises the reported `TypeError`. This CWL change removes the optional `File` input and uses a defaulted `string`, which the mapper handles as a primitive instead of staging as a file. It cannot fix an already deployed v0.3.0 process; deploy/register the revised CWL and image before using it. This changes the MAAP input contract: existing MAAP clients submitting `config` as a `File` must update to `config_json` serialized as JSON text. The CLI's existing file-path behavior remains supported.
 
 CWL fixes the internal `output_dir` to `output` and returns that directory as a `Directory` output. It does not accept an `output_dir` input. Python and the installed CLI require you to specify the output directory.
 
@@ -52,7 +56,7 @@ uv run --frozen main.py \
   --output_dir /tmp/stac-output
 ```
 
-The installed console command accepts the same arguments:
+The installed console command accepts the same arguments, plus `--config-json '{"path_pattern": "..."}'` for serialized inline JSON. `--config` and `--config-json` are mutually exclusive:
 
 ```bash
 uv run --frozen dps-stac-item-generator \
@@ -69,7 +73,7 @@ Use `--include-extensions ""` to include all files. For local data, set `--sourc
 
 Release images use `ghcr.io/maap-project/dps-import-cogs:v<VERSION>`. Set `DPS_PROCESS_VERSION` to a published OGC release version without the image tag's `v` prefix. Use the CWL from that same release, since its `dockerPull` selects the matching image.
 
-**Note:** The migration starts with metadata aligned to the existing `0.2.0` release. That does not establish that an OGC image or process for that version exists. Before publication, build a local image tagged to match the CWL's `dockerPull` rather than assuming you can pull it from GHCR.
+**Note:** The checked-in CWL and package metadata identify `0.3.0`; that does not establish that an OGC image or process for that version exists. Before publication, build a local image tagged to match the CWL's `dockerPull` rather than assuming you can pull it from GHCR.
 
 Run the CLI in a published image with an output mount:
 
@@ -117,8 +121,10 @@ Set `DPS_PROCESS_VERSION` to the exact version reported for a deployed OGC relea
 **Note:** This example submits a real job on `maap-dps-worker-8gb`. Replace the source URL and confirm the deployed version and storage access before running it.
 
 ```python
+import json
 import logging
 import os
+from pathlib import Path
 
 from maap.maap import MAAP
 
@@ -137,9 +143,14 @@ process_ids = [
 if len(process_ids) != 1:
     raise ValueError(f"Expected one process for {process_version}, got {process_ids}")
 
+catalog_config = json.loads(Path("examples/happy-face.json").read_text())
 response = maap.submit_job(
     process_id=process_ids[0],
-    inputs={"source": "s3://bucket/path/to/files/"},
+    inputs={
+        "source": "s3://maap-ops-workspace/shared/henrydevseed/happy-face/",
+        # OGC/CWL accepts serialized JSON text here, not the Python dict itself.
+        "config_json": json.dumps(catalog_config),
+    },
     queue="maap-dps-worker-8gb",
     tag="stac-import",
 )

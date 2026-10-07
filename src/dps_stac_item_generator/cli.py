@@ -49,8 +49,12 @@ def main() -> None:
         default="",
         help="Comma-separated list of file extensions to exclude. Exclusions override inclusions.",
     )
-    parser.add_argument(
-        "--config", type=Path, help="Optional JSON cataloging configuration."
+    config_group = parser.add_mutually_exclusive_group()
+    config_group.add_argument(
+        "--config", type=Path, help="Path to a JSON cataloging configuration."
+    )
+    config_group.add_argument(
+        "--config-json", help="Inline JSON cataloging configuration."
     )
     parser.add_argument(
         "--dry-run",
@@ -71,6 +75,7 @@ def main() -> None:
         include_extensions=args.include_extensions,
         exclude_extensions=args.exclude_extensions,
         config_path=args.config,
+        config_json=args.config_json,
         dry_run=args.dry_run,
         legacy_naming=args.legacy_naming,
     )
