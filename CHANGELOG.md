@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/MAAP-Project/dps-import-cogs/compare/v0.2.0...v0.3.0) (2026-10-07)
+
+
+### Features
+
+* convert to OGC Application Package ([#4](https://github.com/MAAP-Project/dps-import-cogs/issues/4)) ([419340a](https://github.com/MAAP-Project/dps-import-cogs/commit/419340a8339be20166e8bc7aaa5db9d9734fdb1c))
+* multiple assets ([#6](https://github.com/MAAP-Project/dps-import-cogs/issues/6)) ([59b8d71](https://github.com/MAAP-Project/dps-import-cogs/commit/59b8d71adec4c0d712fa0639aa8d2ee69d13195e))
+
 ## [0.2.0](https://github.com/MAAP-Project/dps-import-cogs/compare/v0.1.0...v0.2.0) (2026-06-26)
 
 
