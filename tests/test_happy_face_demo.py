@@ -9,7 +9,7 @@ import pytest
 import rasterio
 from pystac import Catalog
 from pystac.media_type import MediaType
-from rasterio.transform import from_origin
+from rasterio.transform import Affine, from_origin
 from rio_cogeo.cogeo import cog_validate
 
 from dps_stac_item_generator import generator
@@ -39,7 +39,7 @@ def test_generated_tiles_are_adjacent_and_channels_form_one_image(
     assert len(paths) == 6
 
     arrays: dict[str, dict[str, np.ndarray]] = {"left": {}, "right": {}}
-    transforms = {}
+    transforms: dict[str, Affine] = {}
     for path in paths:
         tile = path.parent.name
         channel = path.stem
@@ -109,6 +109,7 @@ def test_happy_face_config_catalogs_two_items_with_three_real_assets(
     assert set(items) == {"happy-face-left", "happy-face-right"}
     for item in items.values():
         assert set(item.assets) == {"red", "green", "blue"}
+        assert item.datetime is not None
         assert item.datetime.isoformat() == "2026-01-01T00:00:00+00:00"
         assert all(
             asset.href.endswith(f"/{item.id.removeprefix('happy-face-')}/{key}.tif")
